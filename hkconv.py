@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
-import csv, re, os
+import csv, re, os, sys
 from operator import itemgetter
 
 
 class HKConv:
     stats = {}
     total = 0
+    src_dir = ''
+    dest_dir = ''
 
-    def __init__(self):
+    def __init__(self, src, dest=''):
         self.convdict = ()
-
+        if src == '':
+            exit()
+        elif dest == '':
+            dest = src + '-new'
+        self.src_dir = src
+        self.dest_dir = dest
 
     def readcsv(self):
         filename = 'tw2hk.csv'
@@ -26,9 +33,9 @@ class HKConv:
 
     def convlangpack(self):
         filelist = []
-        startdir = 'langpack-zh-TW@firefox.mozilla.org'
+        startdir = self.src_dir
         try:
-            os.mkdir("%s-new"%startdir)
+            os.mkdir(self.dest_dir)
         except FileExistsError:
             pass
         for root, dirs, files in os.walk(startdir):
@@ -41,29 +48,40 @@ class HKConv:
                     pass
             for i in files:
                 filename = "%s/%s"%(root, i)
+                # META-INF browser chrome localization manifest.json
+                if not(re.search('META-INF', filename) or 
+                   re.search('browser', filename) or
+                   re.search('chrome', filename) or
+                   re.search('localization', filename) or
+                   re.search('manifest.json', filename)):
+                       continue
                 newfilename = re.sub("^%s"%startdir, "%s-new"%startdir, filename)
                 filelist += [ filename ]
-                newf = open(newfilename, 'w')
+                newf = open(newfilename, 'w', errors='ignore')
+                print(filename)
                 with open(filename) as f:
-                    lines = f.readlines()
-                    for j in lines:
-                        self.total += 1
-                        changed = False
-                        for sk, sv in self.convdict:
-                            try:
-                                if re.search(sk, j):
-                                    newstr = re.sub(sk, sv, j)
-                                    newf.write(newstr)
-                                    changed = True
-                                    if sk in self.stats.keys():
-                                        self.stats[sk] += 1
-                                    else:
-                                        self.stats[sk] = 1
-                            except re.error:
-                                pass
-                        if not changed:
-                            newf.write(j)
-                newf.close()
+                    try:
+                        lines = f.readlines()
+                        for j in lines:
+                            self.total += 1
+                            changed = False
+                            for sk, sv in self.convdict:
+                                try:
+                                    if re.search(sk, j):
+                                        newstr = re.sub(sk, sv, j)
+                                        newf.write(newstr)
+                                        changed = True
+                                        if sk in self.stats.keys():
+                                            self.stats[sk] += 1
+                                        else:
+                                            self.stats[sk] = 1
+                                except re.error:
+                                    pass
+                            if not changed:
+                                newf.write(j)
+                    except:
+                        break
+                    newf.close()
 
 
     def showstats(self):
@@ -75,7 +93,10 @@ class HKConv:
 
 
 if __name__ == "__main__":
-    hkconv = HKConv()
+    try:
+        hkconv = HKConv(sys.argv[1], sys.argv[2])
+    except:
+        hkconv = HKConv(sys.argv[1])
     hkconv.readcsv()
     #hkconv.printdict()
     hkconv.convlangpack()
